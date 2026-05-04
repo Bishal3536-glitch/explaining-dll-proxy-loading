@@ -1,0 +1,116 @@
+dll proxy loading in detail
+this code will generate two or three files based on the requirments , the .cpp code will be the main proxt code and there will also be a .def flile for visual studio for this .cpp file which will be the base for .dll file
+ 
+
+./dllproxy.exe “path/to/dll”   this will generate the code for the proxydll
+
+what is happening under the hood -
+copy the path to a buffer vector named args
+
+. IMAGE_NT_HEADERS headers;
+This defines a structure that acts as a blueprint for the "PE Header" (Portable Executable Header). In Windows, every .exe or .dll starts with a specific data format. The IMAGE_NT_HEADERS is a major part of that format; it contains the "identity" of the file, including how it should be loaded into memory.
+
+the getimagefileheadre function-
+takes path to dll and bluprint varible for pe header  (pass by reference)
+
+creating a file and taking a handle to it 
+
+mapping the file and taking a handle for it 
+
+taking the ptr to the mapview of the file also setting to map to only read permission
+
+now taking to pointerheader to the header of the ptr to the mapview
+
+saving this ptr value in the pe header
+
+now check the machine which we are working on is 32 bit or 64 bit ,, here we use header.FileHeader.Machine (the header string here is the pe header) and save it to fileType varible
+
+the explode function-
+taked path to the dll and ‘\\’  character as input
+
+now we run a loop in such a way that 
+
+it will remove all the \ form the path and replace it with gap 
+
+exp- home/downloads/file == home downloads file
+
+then it returns the value 
+
+it is stored in a vector , 
+ 
+ now we will access the dll name and save it a fileName
+ 
+ now we will remove the .dll form the back of the file and just save the file name in the fileName varible.
+ 
+ the listDllFunction-
+ takes path to the dll and a string vector variable as pass by reference for input
+ 
+ maping and loading the dll with mapandload api and saving the address of the image
+ 
+ now we will take the image and findout the pointer to the derectory entry  data to the dll's export function table 
+ 
+ now we will give the relative vitual address to the address of the functions to the dll and get the vitual address to the functions
+ 
+ now we will save all addresses to the functions in the string vector varible which we gave as input to the fucntion 
+ 
+ the generateDEF function -
+ via this function we will generate the .def file for our .dll which will tell the compiler to list all the fucntions in the IAT 
+ 
+ also this file will tell the compiler to bind the original functions to the fake(melicious) ones 
+ 
+ it taked the original file name as input and the list of functions
+ 
+ the generateMaincpp function- 
+ it taked the original file name as input and the list of functions
+ 
+ here we generate a basic cpp code that just bind functions and structure of the .dll
+
+after the cpp .dll code is generated we wan put the melicous fake functions in the place of the original oness 
+
+this proxy dll also does a job ki it gives the original function to work as expected , as it mapped the original dll it pases the function begaviour .
+
+for the melicous part we want put the melicius code in the dll main do it will run independently in a seperate thread in background.
+
+
+
+how it is stealthy-
+
+This is the million-dollar question. if  shellcode simply calls "loud" APIs like CreateRemoteThread or WriteProcessMemory, a modern AV/EDR will see that behavior and flag it, regardless of whether it's coming from a proxy DLL or a regular EXE.
+However, DLL proxying provides several layers of stealth that make it much harder for the AV to decide if the behavior is actually malicious.
+
+1. The "Trusted Process" Umbrella
+When an AV monitors API calls, it looks at the Source Process.
+• If a random malware.exe calls VirtualAllocEx, it’s a 99% chance of being blocked.
+
+• If msdtc.exe (a legitimate Windows service) or Steam.exe calls memory functions, the AV is much more "forgiving."
+
+
+By proxying, your code is running inside the memory space of the trusted program. The AV sees the trusted program doing the work, which lowers the "Suspicion Score."
+
+2. Bypassing "Static" Analysis
+Most AVs scan files on your hard drive before they even run.
+◇ Regular Malware: Has suspicious imports (like WriteProcessMemory) in its header. The AV sees this and deletes the file immediately.
+
+◇ Proxy DLL: Your proxy DLL mostly contains "boring" jumps to legitimate functions (like GetFileVersionInfo). It looks like a utility tool.
+
+◇ Many attackers use Encoding or Encryption (like XOR) on their shellcode. The AV scans the DLL, sees random gibberish bytes, and doesn't find a "signature."
+
+
+
+3. Bypassing "Behavioral" Analysis (The Hooking Battle)
+This is where the real fight happens. Modern EDRs (Endpoint Detection and Response) "hook" the Windows APIs to watch them. To bypass this, proxy DLLs often use Indirect Techniques:
+◇ Direct Syscalls: Instead of calling VirtualAlloc (which the AV is watching), the code inside your proxy DLL can talk directly to the Windows Kernel. This bypasses the AV's "hooks" entirely.
+
+◇ Module Stomping: You use the memory space already allocated for a legitimate DLL to hide your shellcode.
+
+◇ Wait and See: Since your code is running independently in the background, it can wait for 10 minutes, or wait until the user moves the mouse, before executing. This bypasses "Sandboxes" that only watch a program for 30 seconds.
+
+
+
+
+ 
+ 
+
+
+
+
